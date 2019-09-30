@@ -1,18 +1,19 @@
 package com.reucon.openfire.plugins.userstatus;
 
-import org.jivesoftware.database.DbConnectionManager;
-import org.jivesoftware.database.SequenceManager;
-import org.jivesoftware.util.Log;
-import org.jivesoftware.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.jivesoftware.openfire.session.Session;
-
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Date;
-import java.net.UnknownHostException;
+
+import org.jivesoftware.database.DbConnectionManager;
+import org.jivesoftware.database.SequenceManager;
+import org.jivesoftware.openfire.session.Session;
+import org.jivesoftware.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.reucon.openfire.plugins.userstatus.UserStatusPlugin.Direction;
 
 /**
  * Default implementation of the PersistenceManager interface.
@@ -22,6 +23,7 @@ public class DefaultPersistenceManager implements PersistenceManager
   private static final Logger Log = LoggerFactory.getLogger(DefaultPersistenceManager.class);
   
     private static final int SEQ_ID = 510;
+    private static final int S_SEQ_ID = 511;
 
     private static final String ADD_USER_STATUS =
             "INSERT INTO userStatus (username, resource, online, lastIpAddress, lastLoginDate) " +
@@ -49,6 +51,15 @@ public class DefaultPersistenceManager implements PersistenceManager
     private static final String DELETE_OLD_USER_STATUS_HISTORY =
             "DELETE from userStatusHistory WHERE lastLogoffDate < ?";
 
+    private static final String ADD_SERVER_STATUS_HISTORY = 
+            "INSERT INTO serverStatusHistory (historyID, servername, online, ipAddress, eventDate, type )" +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+
+    private static final String DELETE_OLD_SERVER_STATUS_HISTORY =
+        "DELETE from serverStatusHistory WHERE lastLogoffDate < ?";
+
+
+    
     /**
      * Number of days to keep history entries.<p>
      * 0 for no history entries, -1 for unlimited.
@@ -233,6 +244,83 @@ public class DefaultPersistenceManager implements PersistenceManager
         }
     }
 
+    @Override
+    public void setServerOnline(Session session, Direction direction)
+    {
+      writeServerStatus(session, true, StringUtils.dateToMillis(session.getCreationDate()), direction);
+
+    }
+
+    /**
+     * @param session
+     * @param b
+     * @param dateToMillis
+     */
+    private void writeServerStatus(Session session, boolean online, String dateToMillis, Direction direction) {
+      Connection con = null;
+      PreparedStatement pstmt = null;
+
+      try
+      {
+          con = DbConnectionManager.getConnection();
+          pstmt = con.prepareStatement(ADD_SERVER_STATUS_HISTORY);
+          pstmt.setLong(1, SequenceManager.nextID(S_SEQ_ID));
+          pstmt.setString(2, getHostName(session));
+          pstmt.setInt(3, (online ? 1 : 0));
+          pstmt.setString(4, getHostAddress(session));
+          pstmt.setString(5, dateToMillis);
+          pstmt.setInt(6, getDirection(direction));
+          pstmt.executeUpdate();
+      }
+      catch (SQLException e)
+      {
+          Log.error("Unable to update server status for " + session.getAddress(), e);
+      }
+      finally
+      {
+          DbConnectionManager.closeConnection(pstmt, con);
+      }
+      
+    }
+
+    @Override
+    public void setServerOffline(Session session, Date logoffDate, Direction direction)
+    {
+      writeServerStatus(session, false, StringUtils.dateToMillis(logoffDate), direction);
+
+      deleteOldServerHistoryEntries();
+    }
+
+    public void deleteOldServerHistoryEntries()
+    {
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        if (historyDays > 0)
+        {
+            final Date deleteBefore;
+
+            deleteBefore = new Date(System.currentTimeMillis() - historyDays * 24L * 60L * 60L * 1000L);
+
+            try
+            {
+                con = DbConnectionManager.getConnection();
+                pstmt = con.prepareStatement(DELETE_OLD_SERVER_STATUS_HISTORY);
+                pstmt.setString(1, StringUtils.dateToMillis(deleteBefore));
+                pstmt.executeUpdate();
+            }
+            catch (SQLException e)
+            {
+                Log.error("Unable to delete old server status history", e);
+            }
+            finally
+            {
+                DbConnectionManager.closeConnection(pstmt, con);
+            }
+        }
+    }
+    
+    
     private String getHostAddress(Session session)
     {
         try
@@ -244,4 +332,30 @@ public class DefaultPersistenceManager implements PersistenceManager
             return "";
         }
     }
+    
+    private String getHostName(Session session)
+    {
+        try
+        {
+            return session.getHostName();
+        }
+        catch (UnknownHostException e)
+        {
+            return session.getAddress().getDomain();
+        }
+    }
+    
+    private int getDirection(Direction direction) {
+      
+      switch (direction) {
+      case IN: return 1;
+      case OUT: return 2;
+      case UNKNOWN:
+      default:
+        break;
+      }
+      return 0;
+    }
+
+    
 }

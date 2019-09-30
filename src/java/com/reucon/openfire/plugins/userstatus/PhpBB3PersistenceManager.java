@@ -1,16 +1,18 @@
 package com.reucon.openfire.plugins.userstatus;
 
-import org.jivesoftware.database.DbConnectionManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.jivesoftware.util.JiveGlobals;
-import org.jivesoftware.openfire.session.Session;
-
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.DriverManager;
 import java.util.Date;
+
+import org.jivesoftware.database.DbConnectionManager;
+import org.jivesoftware.openfire.session.Session;
+import org.jivesoftware.util.JiveGlobals;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.reucon.openfire.plugins.userstatus.UserStatusPlugin.Direction;
 
 /**
  * Implementation of the PersistenceManager interface for phpBB3 integration.
@@ -146,6 +148,16 @@ public class PhpBB3PersistenceManager implements PersistenceManager
     public void deleteOldHistoryEntries()
     {
         // history not supported
+    }
+
+    @Override
+    public void setServerOnline(Session session, Direction direction) {
+      // history not supported
+    }
+
+    @Override
+    public void setServerOffline(Session session, Date logoffDate, Direction direction) {
+      // history not supported
     }
 
 
