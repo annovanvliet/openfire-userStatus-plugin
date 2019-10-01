@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
 
+import org.jivesoftware.openfire.ConnectionCloseListener;
 import org.jivesoftware.openfire.SessionManager;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
@@ -17,6 +18,8 @@ import org.jivesoftware.openfire.event.SessionEventDispatcher;
 import org.jivesoftware.openfire.event.SessionEventListener;
 import org.jivesoftware.openfire.session.ClientSession;
 import org.jivesoftware.openfire.session.IncomingServerSession;
+import org.jivesoftware.openfire.session.LocalIncomingServerSession;
+import org.jivesoftware.openfire.session.LocalOutgoingServerSession;
 import org.jivesoftware.openfire.session.OutgoingServerSession;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.openfire.user.PresenceEventDispatcher;
@@ -306,11 +309,16 @@ public class UserStatusPlugin implements Plugin, PropertyEventListener, SessionE
         }
     }
     
-    private class MyServerSessionEventListener implements ServerSessionEventListener {
+    private class MyServerSessionEventListener implements ServerSessionEventListener, ConnectionCloseListener {
       
       @Override
       public void sessionDestroyed(Session session) {
         
+        try {
+          Log.info("sessionDestroyed: {} {}", session, session.getHostName());
+        } catch (UnknownHostException e) {
+          Log.info("sessionDestroyed: " + session + " - " );
+        }
         Direction direction = Direction.UNKNOWN;
         if (session instanceof IncomingServerSession ) direction = Direction.IN; 
         if (session instanceof OutgoingServerSession ) direction = Direction.OUT; 
@@ -328,11 +336,30 @@ public class UserStatusPlugin implements Plugin, PropertyEventListener, SessionE
         }
         
         Direction direction = Direction.UNKNOWN;
-        if (session instanceof IncomingServerSession ) direction = Direction.IN; 
-        if (session instanceof OutgoingServerSession ) direction = Direction.OUT; 
+        if (session instanceof IncomingServerSession ) {
+          direction = Direction.IN; 
+          if (session instanceof LocalIncomingServerSession ) {
+            ((LocalIncomingServerSession)session).getConnection().registerCloseListener(this, session);
+          }
+        }
+        if (session instanceof OutgoingServerSession ) {
+          direction = Direction.OUT; 
+          
+          if (session instanceof LocalOutgoingServerSession ) {
+            ((LocalOutgoingServerSession)session).getConnection().registerCloseListener(this, session);
+          }
+        }
                 
         setServerOnline(session, direction);
         
+      }
+
+      @Override
+      public void onConnectionClose(Object handback) {
+
+        Session session = (Session)handback;
+        sessionDestroyed(session);
+
       }
     }
     

@@ -52,8 +52,8 @@ public class DefaultPersistenceManager implements PersistenceManager
             "DELETE from userStatusHistory WHERE lastLogoffDate < ?";
 
     private static final String ADD_SERVER_STATUS_HISTORY = 
-            "INSERT INTO serverStatusHistory (historyID, servername, online, ipAddress, eventDate, type )" +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+            "INSERT INTO serverStatusHistory (historyID, streamID, address, servername, online, ipAddress, eventDate, type )" +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String DELETE_OLD_SERVER_STATUS_HISTORY =
         "DELETE from serverStatusHistory WHERE lastLogoffDate < ?";
@@ -265,11 +265,13 @@ public class DefaultPersistenceManager implements PersistenceManager
           con = DbConnectionManager.getConnection();
           pstmt = con.prepareStatement(ADD_SERVER_STATUS_HISTORY);
           pstmt.setLong(1, SequenceManager.nextID(S_SEQ_ID));
-          pstmt.setString(2, getHostName(session));
-          pstmt.setInt(3, (online ? 1 : 0));
-          pstmt.setString(4, getHostAddress(session));
-          pstmt.setString(5, dateToMillis);
-          pstmt.setInt(6, getDirection(direction));
+          pstmt.setString(2, session.getStreamID().getID());
+          pstmt.setString(3, session.getAddress().getDomain());
+          pstmt.setString(4, getHostName(session));
+          pstmt.setInt(5, (online ? 1 : 0));
+          pstmt.setString(6, getHostAddress(session));
+          pstmt.setString(7, dateToMillis);
+          pstmt.setInt(8, getDirection(direction));
           pstmt.executeUpdate();
       }
       catch (SQLException e)
