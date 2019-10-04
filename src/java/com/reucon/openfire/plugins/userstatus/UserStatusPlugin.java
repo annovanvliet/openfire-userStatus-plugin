@@ -5,6 +5,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import org.jivesoftware.openfire.ConnectionCloseListener;
@@ -32,23 +33,13 @@ import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.Presence;
 
+import com.reucon.openfire.plugins.userstatus.ConnectionStatus.Direction;
+
 /**
  * UserStatus plugin for Openfire.
  */
 public class UserStatusPlugin implements Plugin, PropertyEventListener, SessionEventListener, PresenceEventListener, PersistenceManager
 {
-    /**
-   * TODO add a Description.
-   *
-   * @author Anno van Vliet
-   *
-   */
-  enum Direction {
-    UNKNOWN,
-    IN,
-    OUT;
-  }
-
     private static Logger Log = LoggerFactory.getLogger(UserStatusPlugin.class.getName());
   
     public static final String HISTORY_DAYS_PROPERTY = "user-status.historyDays";
@@ -307,6 +298,29 @@ public class UserStatusPlugin implements Plugin, PropertyEventListener, SessionE
         {
             pm.deleteOldHistoryEntries();
         }
+    }
+    
+    /**
+     * Return the size of the history.
+     * 
+     * @return
+     */
+    public int retrieveConnectionsCount() {
+      
+      return new DefaultPersistenceManager().retrieveConnectionsCount();
+      
+    }
+    
+    /**
+     * Retrieve a consolidate view on the server statsu history.
+     * @param start
+     * @param maxIndex
+     * @return
+     */
+    public List<ConnectionStatus> retrieveConnections(int start, int maxIndex) {
+            
+      return new DefaultPersistenceManager().retrieveConnections(start,maxIndex);
+      
     }
     
     private class MyServerSessionEventListener implements ServerSessionEventListener, ConnectionCloseListener {

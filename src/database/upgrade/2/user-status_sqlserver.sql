@@ -3,11 +3,10 @@ CREATE TABLE serverStatusHistory (
     historyID       BIGINT              NOT NULL,
     streamID        VARCHAR(45)         NOT NULL,
     address         VARCHAR(64)         NOT NULL,
-    servername      VARCHAR(64)         NOT NULL,
-    online          TINYINT             NOT NULL,
     ipAddress       CHAR(45)            NOT NULL,
-    eventDate       CHAR(15)            NOT NULL,
+    online          TINYINT             NOT NULL,
     type            TINYINT             NOT NULL,
+    eventDate       CHAR(15)            NOT NULL,
     CONSTRAINT serverStatusHistory_pk PRIMARY KEY (historyID)
 );
 

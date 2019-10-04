@@ -25,5 +25,15 @@
                    description="${user-status.settings.description}" />
             </sidebar>
         </tab>
+        <tab id="tab-session">
+            <sidebar id="sidebar-session-history" name="${user-status.sidebar-session-history.title}">
+               <item id="server-session-history" name="${user-status.server-session-history.title}"
+                   url="server-session-history.jsp"
+                   description="${user-status.server-session-history.description}" />
+               <!-- <item id="user-session-history" name="${user-status.user-session-history.title}"
+                   url="user-session-history.jsp"
+                   description="${user-status.user-session-history.description}" /> -->
+            </sidebar>
+        </tab>
     </adminconsole>
 </plugin>

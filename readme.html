@@ -249,6 +249,25 @@ CREATE TABLE userStatusHistory (
 );
 </pre>
 
+        <p>
+            The <tt>serverStatusHistory</tt> table contains the archived status entries if enabled:
+        </p>
+
+<pre>
+CREATE TABLE serverStatusHistory (
+    historyID       BIGINT              NOT NULL,
+    streamID        VARCHAR(45)         NOT NULL,
+    address         VARCHAR(64)         NOT NULL,
+    servername      VARCHAR(64)         NOT NULL,
+    online          INTEGER             NOT NULL,
+    ipAddress       CHAR(45)            NOT NULL,
+    eventDate       CHAR(15)            NOT NULL,
+    type            INTEGER             NOT NULL,
+    PRIMARY KEY (historyID)
+);
+</pre>
+
+
     </div>
 
     <div class="footer">

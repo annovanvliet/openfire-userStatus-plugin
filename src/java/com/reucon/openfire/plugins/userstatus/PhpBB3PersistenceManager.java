@@ -12,7 +12,8 @@ import org.jivesoftware.util.JiveGlobals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.reucon.openfire.plugins.userstatus.UserStatusPlugin.Direction;
+import com.reucon.openfire.plugins.userstatus.ConnectionStatus.Direction;
+
 
 /**
  * Implementation of the PersistenceManager interface for phpBB3 integration.

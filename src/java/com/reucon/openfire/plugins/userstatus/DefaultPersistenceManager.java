@@ -3,8 +3,11 @@ package com.reucon.openfire.plugins.userstatus;
 import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.jivesoftware.database.DbConnectionManager;
 import org.jivesoftware.database.SequenceManager;
@@ -13,7 +16,7 @@ import org.jivesoftware.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.reucon.openfire.plugins.userstatus.UserStatusPlugin.Direction;
+import com.reucon.openfire.plugins.userstatus.ConnectionStatus.Direction;
 
 /**
  * Default implementation of the PersistenceManager interface.
@@ -52,11 +55,24 @@ public class DefaultPersistenceManager implements PersistenceManager
             "DELETE from userStatusHistory WHERE lastLogoffDate < ?";
 
     private static final String ADD_SERVER_STATUS_HISTORY = 
-            "INSERT INTO serverStatusHistory (historyID, streamID, address, servername, online, ipAddress, eventDate, type )" +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            "INSERT INTO serverStatusHistory (historyID, streamID, address, ipAddress, online, type, eventDate)" +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     private static final String DELETE_OLD_SERVER_STATUS_HISTORY =
         "DELETE from serverStatusHistory WHERE lastLogoffDate < ?";
+
+    private static final String SELECT_SERVER_STATUS_HISTORY_VIEW = "SELECT t1.address, t1.ipaddress, t1.min, t1.max, t2.max  "
+        + "FROM "
+        + "(SELECT address, ipaddress, MIN(eventdate) AS min,  MAX(eventdate) AS max "
+        + "FROM serverStatusHistory where online = 1 "
+        + "GROUP BY address, ipaddress) AS t1 "
+        + "LEFT JOIN "
+        + "( SELECT address, ipaddress, MAX(EVENTDATE) AS max "
+        + "FROM serverStatusHistory AS t2 where online = 0 "
+        + "GROUP BY address, ipaddress ) AS t2 "
+        + "ON t1.address = t2.address AND t1.ipaddress = t2.ipaddress";
+   
+    private static final String SELECT_SERVER_STATUS_HISTORY_VIEW_COUNT = "SELECT COUNT(distinct address) FROM serverStatusHistory ";
 
 
     
@@ -266,17 +282,16 @@ public class DefaultPersistenceManager implements PersistenceManager
           pstmt = con.prepareStatement(ADD_SERVER_STATUS_HISTORY);
           pstmt.setLong(1, SequenceManager.nextID(S_SEQ_ID));
           pstmt.setString(2, session.getStreamID().getID());
-          pstmt.setString(3, session.getAddress().getDomain());
-          pstmt.setString(4, getHostName(session));
+          pstmt.setString(3, getHostName(session));
+          pstmt.setString(4, getHostAddress(session));
           pstmt.setInt(5, (online ? 1 : 0));
-          pstmt.setString(6, getHostAddress(session));
+          pstmt.setInt(6, getDirection(direction));
           pstmt.setString(7, dateToMillis);
-          pstmt.setInt(8, getDirection(direction));
           pstmt.executeUpdate();
       }
       catch (SQLException e)
       {
-          Log.error("Unable to update server status for " + session.getAddress(), e);
+          Log.error("Unable to add server status history for " + session.getStreamID(), e);
       }
       finally
       {
@@ -347,16 +362,111 @@ public class DefaultPersistenceManager implements PersistenceManager
         }
     }
     
-    private int getDirection(Direction direction) {
+    private int getDirection(com.reucon.openfire.plugins.userstatus.ConnectionStatus.Direction direction) {
       
       switch (direction) {
       case IN: return 1;
       case OUT: return 2;
+      case BOTH: return 3;
       case UNKNOWN:
       default:
         break;
       }
       return 0;
+    }
+
+  /**
+   * @param start
+   * @param maxIndex
+   * @return
+   */
+  public List<ConnectionStatus> retrieveConnections(int start, int maxIndex) {
+    List<ConnectionStatus> result = new ArrayList<ConnectionStatus>();
+
+    Connection con = null;
+    PreparedStatement pstmt = null;
+    ResultSet resultSet = null;
+    
+    try {
+      con = DbConnectionManager.getConnection();
+      pstmt = con.prepareStatement(SELECT_SERVER_STATUS_HISTORY_VIEW);
+//      pstmt.setInt(1, start);
+//      pstmt.setInt(2, maxIndex);
+      resultSet = pstmt.executeQuery();
+      
+      while (resultSet.next()) {
+        
+        ConnectionStatus connectionStatus = new ConnectionStatus(
+            resultSet.getString(1), 
+            resultSet.getString(2), 
+            millisToDate(resultSet.getString(3)), 
+            millisToDate(resultSet.getString(4)), 
+            millisToDate(resultSet.getString(5)));
+        
+        result.add(connectionStatus);
+        
+      }
+      
+    } catch (SQLException e) {
+      Log.error("Unable to retrieve server session history", e);
+    } finally {
+      DbConnectionManager.closeConnection(resultSet, pstmt, con);
+    }
+
+    return result;
+  }
+
+  /**
+   * @param int1
+   * @return
+   */
+  private Direction intToDirection(int int1) {
+    switch (int1) {
+    case 1: return Direction.IN;
+    case 2: return Direction.OUT;
+    case 3: return Direction.BOTH;
+    default:
+      break;
+    }
+    return Direction.UNKNOWN;
+  }
+
+  private Date millisToDate(String l) {
+    if (l != null) {
+      try {
+        return new Date(Long.parseLong(l));
+      } catch (NumberFormatException e) {
+        Log.error("Not a valid number:" + l , e);
+      }
+    }
+    return null;
+  }
+
+    /**
+     * @return
+     */
+    public int retrieveConnectionsCount() {
+      
+      int result = 0;
+      Connection con = null;
+      PreparedStatement pstmt = null;
+      ResultSet resultSet  = null;
+      
+      try {
+        con = DbConnectionManager.getConnection();
+        pstmt = con.prepareStatement(SELECT_SERVER_STATUS_HISTORY_VIEW_COUNT);
+        resultSet = pstmt.executeQuery();
+        
+        if (resultSet.next()) {
+          result = resultSet.getInt(1);
+        }
+        
+      } catch (SQLException e) {
+        Log.error("Unable to retrieve old server status history count", e);
+      } finally {
+        DbConnectionManager.closeConnection(resultSet, pstmt, con);
+      }
+      return result;
     }
 
     

@@ -4,7 +4,8 @@ import java.util.Date;
 
 import org.jivesoftware.openfire.session.Session;
 
-import com.reucon.openfire.plugins.userstatus.UserStatusPlugin.Direction;
+import com.reucon.openfire.plugins.userstatus.ConnectionStatus.Direction;
+
 
 /**
  *
